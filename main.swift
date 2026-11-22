@@ -45,8 +45,15 @@ let strings: [String: (en: String, tr: String)] = [
     "granted": ("Granted — lines are drawn", "Verildi, çizgiler çiziliyor"),
     "notGranted": ("Not granted — lines can't be drawn", "Verilmedi, çizgiler çizilemiyor"),
     "openSettings": ("Open System Settings…", "Sistem Ayarları'nı Aç…"),
+    "background": ("Keep Lines After Quitting", "Çıkınca Çizgiler Kalsın"),
+    "backgroundHelp": ("Quit closes the window but keeps drawing lines in the background. Quit fully from the menu bar icon.",
+                       "Çık deyince pencere kapanır, çizgiler arka planda kalır. Tamamen çıkmak için menü çubuğu simgesini kullan."),
+    "quitFully": ("Quit Completely", "Tamamen Çık"),
     "loginHelp": ("Keeps the lines visible after a restart.", "Mac yeniden başlayınca da çizgiler görünür kalır."),
 ]
+
+/// On by default: quitting only closes windows so the lines stay.
+func keepRunning() -> Bool { UserDefaults.standard.object(forKey: "keepRunning") as? Bool ?? true }
 
 func t(_ key: String) -> String { strings[key].map { isTurkish() ? $0.tr : $0.en } ?? key }
 
@@ -260,6 +267,7 @@ struct SettingsView: View {
     @AppStorage("lang") private var lang = "system"
     @State private var login = SMAppService.mainApp.status == .enabled
     @State private var trusted = AXIsProcessTrusted()
+    @AppStorage("keepRunning") private var keep = true
     let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -276,6 +284,10 @@ struct SettingsView: View {
             })) {
                 Text(t("login"))
                 Text(t("loginHelp"))
+            }
+            Toggle(isOn: $keep) {
+                Text(t("background"))
+                Text(t("backgroundHelp"))
             }
             LabeledContent(t("accessibility")) {
                 HStack {
@@ -352,7 +364,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             menu.addItem(withTitle: t("grant"), action: #selector(grantAccess), keyEquivalent: "").target = self
         }
         menu.addItem(.separator())
-        menu.addItem(withTitle: t("quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: t(keepRunning() ? "quitFully" : "quit"), action: #selector(quitFully), keyEquivalent: "")
     }
 
     @objc func showEditor() {
@@ -370,6 +382,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             settings = makeWindow(t("settings").replacingOccurrences(of: "…", with: ""), host, size: host.fittingSize, resizable: false)
         }
         present(settings!)
+    }
+
+    var forceQuit = false
+    @objc func quitFully() { forceQuit = true; NSApp.terminate(nil) }
+
+    // ⌘Q / Dock "Quit" only close the windows; logout, restart and "Quit Completely" really quit.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let ev = NSAppleEventManager.shared().currentAppleEvent
+        let systemQuit = ev?.attributeDescriptor(forKeyword: kAEQuitReason) != nil || ev?.paramDescriptor(forKeyword: kAEQuitReason) != nil
+        guard keepRunning(), !forceQuit, !systemQuit else { return .terminateNow }
+        [editor, settings].forEach { $0?.close() }
+        NSApp.setActivationPolicy(.accessory)
+        return .terminateCancel
     }
 
     @objc func grantAccess() { openAccessibility() }
