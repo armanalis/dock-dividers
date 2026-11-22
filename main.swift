@@ -9,6 +9,34 @@ import SwiftUI
 let dockDomain = "com.apple.dock" as CFString
 let spacerType = "small-spacer-tile"
 
+// MARK: - Language (English + Turkish), same scheme as Check Updates
+
+/// "system" follows the Mac's language; "en" / "tr" force one.
+func isTurkish() -> Bool {
+    switch UserDefaults.standard.string(forKey: "lang") ?? "system" {
+    case "tr": return true
+    case "en": return false
+    default: return Locale.preferredLanguages.first?.hasPrefix("tr") ?? false
+    }
+}
+
+let strings: [String: (en: String, tr: String)] = [
+    "divider": ("Divider", "Ayraç"),
+    "removeDivider": ("Remove divider", "Ayracı kaldır"),
+    "hint": ("Drag to reorder. Left to right = top to bottom.", "Sürükleyip sırala. Soldan sağa = yukarıdan aşağıya."),
+    "addDivider": ("Add Divider", "Ayraç Ekle"),
+    "revert": ("Revert", "Geri Al"),
+    "apply": ("Apply to Dock", "Dock'a Uygula"),
+    "edit": ("Edit…", "Düzenle…"),
+    "grant": ("Grant Accessibility Access…", "Erişilebilirlik İzni Ver…"),
+    "login": ("Open at Login", "Girişte Başlat"),
+    "language": ("Language", "Dil"),
+    "system": ("System", "Sistem"),
+    "quit": ("Quit", "Çık"),
+]
+
+func t(_ key: String) -> String { strings[key].map { isTurkish() ? $0.tr : $0.en } ?? key }
+
 // MARK: - Dock preferences
 
 func persistentApps() -> [Any] {
@@ -170,10 +198,10 @@ struct TileRow: View {
         if isSpacer(tile.raw) {
             HStack {
                 Rectangle().fill(.secondary).frame(width: 2, height: 22).frame(width: 28)
-                Text("Ayraç").foregroundStyle(.secondary)
+                Text(t("divider")).foregroundStyle(.secondary)
                 Spacer()
                 Button(action: onRemove) { Image(systemName: "xmark.circle.fill") }
-                    .buttonStyle(.borderless).foregroundStyle(.secondary).help("Ayracı kaldır")
+                    .buttonStyle(.borderless).foregroundStyle(.secondary).help(t("removeDivider"))
             }
         } else {
             HStack {
@@ -189,17 +217,17 @@ struct EditorView: View {
     @ObservedObject var model: EditorModel
     var body: some View {
         VStack(spacing: 0) {
-            Text("Sürükleyip sırala. Soldan sağa = yukarıdan aşağıya.")
+            Text(t("hint"))
                 .font(.caption).foregroundStyle(.secondary).padding(8)
             List {
                 ForEach(model.tiles) { t in TileRow(tile: t) { model.remove(t) } }
                     .onMove { model.tiles.move(fromOffsets: $0, toOffset: $1); model.dirty = true }
             }
             HStack {
-                Button("Ayraç Ekle") { model.addDivider() }
+                Button(t("addDivider")) { model.addDivider() }
                 Spacer()
-                Button("Geri Al") { model.load() }.disabled(!model.dirty)
-                Button("Dock'a Uygula") { model.apply() }.keyboardShortcut(.defaultAction).disabled(!model.dirty)
+                Button(t("revert")) { model.load() }.disabled(!model.dirty)
+                Button(t("apply")) { model.apply() }.keyboardShortcut(.defaultAction).disabled(!model.dirty)
             }.padding(10)
         }
         .frame(minWidth: 280, minHeight: 360)
@@ -230,15 +258,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        menu.addItem(withTitle: "Düzenle…", action: #selector(showEditor), keyEquivalent: "e").target = self
+        menu.addItem(withTitle: t("edit"), action: #selector(showEditor), keyEquivalent: "e").target = self
         menu.addItem(.separator())
         if !AXIsProcessTrusted() {
-            menu.addItem(withTitle: "Erişilebilirlik İzni Ver…", action: #selector(openAccessibility), keyEquivalent: "").target = self
+            menu.addItem(withTitle: t("grant"), action: #selector(openAccessibility), keyEquivalent: "").target = self
         }
-        let login = menu.addItem(withTitle: "Girişte Başlat", action: #selector(toggleLogin), keyEquivalent: "")
+        let login = menu.addItem(withTitle: t("login"), action: #selector(toggleLogin), keyEquivalent: "")
         login.target = self
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
-        menu.addItem(withTitle: "Çık", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let langMenu = NSMenu()
+        for (code, title) in [("system", t("system")), ("en", "English"), ("tr", "Türkçe")] {
+            let item = langMenu.addItem(withTitle: title, action: #selector(setLanguage(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = code
+            item.state = (UserDefaults.standard.string(forKey: "lang") ?? "system") == code ? .on : .off
+        }
+        menu.addItem(withTitle: t("language"), action: nil, keyEquivalent: "").submenu = langMenu
+        menu.addItem(withTitle: t("quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
     }
 
     var editor: NSWindow?
@@ -262,6 +298,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // Opening the app again from Finder/Launchpad shows the editor.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
         showEditor(); return false
+    }
+
+    @objc func setLanguage(_ sender: NSMenuItem) {
+        UserDefaults.standard.set(sender.representedObject as? String, forKey: "lang")
+        // Rebuild the editor so its texts switch language.
+        let wasOpen = editor?.isVisible ?? false
+        editor?.close(); editor = nil
+        if wasOpen { showEditor() }
     }
 
     @objc func openAccessibility() {

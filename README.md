@@ -15,10 +15,10 @@
 
 <table>
   <tr>
-    <td width="40%"><img src="docs/screenshot-editor.png" alt="Editor window: Dock apps in a list with a divider row between Calculator and Weather, Add Divider and Apply buttons"></td>
+    <td width="40%"><img src="docs/screenshot-editor.png" alt="Editor window: Dock apps in a list with a divider row between Calculator and Weather, Add Divider and Apply to Dock buttons"></td>
     <td>
-      <b>Drag to arrange</b><br>
-      Every Dock app and divider in one list. Drag a divider between any two apps, or drag an app between two dividers, then press <b>Dock'a Uygula</b> (Apply).<br><br>
+      <b>Drag to arrange</b> · English / Türkçe<br>
+      Every Dock app and divider in one list. Drag a divider between any two apps, or drag an app between two dividers, then press <b>Apply to Dock</b>.<br><br>
       <b>Sürükle, sırala</b><br>
       Dock'taki tüm uygulamalar ve ayraçlar tek listede. Ayracı istediğin iki uygulamanın arasına, uygulamayı iki ayracın arasına sürükle, sonra <b>Dock'a Uygula</b>'ya bas.
     </td>
@@ -42,11 +42,11 @@ Kurulumdan sonra **Sistem Ayarları → Gizlilik ve Güvenlik → Erişilebilirl
 
 ## How it works
 
-1. **Ayraç Ekle** (Add Divider) inserts Apple's own `small-spacer-tile` into the Dock: a half-icon-wide gap.
+1. **Add Divider** inserts Apple's own `small-spacer-tile` into the Dock: a half-icon-wide gap.
 2. The app reads each spacer's position through the Accessibility API (`AXSpacerDockItem`).
 3. A transparent, click-through window draws a thin line over each spacer, styled like the built-in separator and matching light/dark mode.
 
-It runs from the menu bar (vertical line icon): **Düzenle…** opens the editor, **Girişte Başlat** starts it at login.
+It runs from the menu bar (vertical line icon): **Edit…** opens the editor, **Open at Login** starts it at login, **Language** switches between System, English and Türkçe.
 
 ## Limits
 
