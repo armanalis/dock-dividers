@@ -46,7 +46,7 @@ Kurulumdan sonra **Sistem Ayarları → Gizlilik ve Güvenlik → Erişilebilirl
 2. The app reads each spacer's position through the Accessibility API (`AXSpacerDockItem`).
 3. A transparent, click-through window draws a thin line over each spacer, styled like the built-in separator and matching light/dark mode.
 
-It runs from the menu bar (vertical line icon): **Edit…** opens the editor, **Open at Login** starts it at login, **Language** switches between System, English and Türkçe.
+While a window is open it behaves like a normal app, with a Dock icon and menu bar; close it and only the menu bar icon (vertical line) stays. **Settings… (⌘,)** has Language (System / English / Türkçe), Open at Login and the Accessibility status.
 
 ## Limits
 

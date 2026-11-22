@@ -2,6 +2,7 @@ import AppKit
 import ApplicationServices
 import ServiceManagement
 import SwiftUI
+import Combine
 
 // Dock Dividers: adds Apple's own small spacer tiles to the Dock and draws a thin
 // native-looking line over each one, so app groups can be split anywhere.
@@ -32,7 +33,19 @@ let strings: [String: (en: String, tr: String)] = [
     "login": ("Open at Login", "Girişte Başlat"),
     "language": ("Language", "Dil"),
     "system": ("System", "Sistem"),
-    "quit": ("Quit", "Çık"),
+    "quit": ("Quit Dock Dividers", "Dock Dividers'tan Çık"),
+    "settings": ("Settings…", "Ayarlar…"),
+    "about": ("About Dock Dividers", "Dock Dividers Hakkında"),
+    "hide": ("Hide Dock Dividers", "Dock Dividers'ı Gizle"),
+    "window": ("Window", "Pencere"),
+    "close": ("Close", "Kapat"),
+    "minimize": ("Minimize", "Küçült"),
+    "editorWindow": ("Dividers", "Ayraçlar"),
+    "accessibility": ("Accessibility", "Erişilebilirlik"),
+    "granted": ("Granted — lines are drawn", "Verildi, çizgiler çiziliyor"),
+    "notGranted": ("Not granted — lines can't be drawn", "Verilmedi, çizgiler çizilemiyor"),
+    "openSettings": ("Open System Settings…", "Sistem Ayarları'nı Aç…"),
+    "loginHelp": ("Keeps the lines visible after a restart.", "Mac yeniden başlayınca da çizgiler görünür kalır."),
 ]
 
 func t(_ key: String) -> String { strings[key].map { isTurkish() ? $0.tr : $0.en } ?? key }
@@ -190,6 +203,7 @@ final class EditorModel: ObservableObject {
 struct TileRow: View {
     let tile: Tile
     let onRemove: () -> Void
+    @AppStorage("lang") private var lang = "system"
     var data: [String: Any] { (tile.raw as? [String: Any])?["tile-data"] as? [String: Any] ?? [:] }
     var path: String? {
         ((data["file-data"] as? [String: Any])?["_CFURLString"] as? String).flatMap { URL(string: $0)?.path }
@@ -215,6 +229,7 @@ struct TileRow: View {
 
 struct EditorView: View {
     @ObservedObject var model: EditorModel
+    @AppStorage("lang") private var lang = "system"
     var body: some View {
         VStack(spacing: 0) {
             Text(t("hint"))
@@ -234,17 +249,70 @@ struct EditorView: View {
     }
 }
 
-// MARK: - Menu bar app
+// MARK: - Settings window
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+func setLanguage(_ code: String) {
+    UserDefaults.standard.set(code, forKey: "lang")
+    (NSApp.delegate as? AppDelegate)?.buildMainMenu()
+}
+
+struct SettingsView: View {
+    @AppStorage("lang") private var lang = "system"
+    @State private var login = SMAppService.mainApp.status == .enabled
+    @State private var trusted = AXIsProcessTrusted()
+    let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        Form {
+            Picker(t("language"), selection: Binding(get: { lang }, set: { setLanguage($0) })) {
+                Text(t("system")).tag("system")
+                Text("English").tag("en")
+                Text("Türkçe").tag("tr")
+            }
+            Toggle(isOn: Binding(get: { login }, set: { on in
+                let s = SMAppService.mainApp
+                do { try on ? s.register() : s.unregister() } catch { NSAlert(error: error).runModal() }
+                login = s.status == .enabled
+            })) {
+                Text(t("login"))
+                Text(t("loginHelp"))
+            }
+            LabeledContent(t("accessibility")) {
+                HStack {
+                    Image(systemName: trusted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .foregroundStyle(trusted ? .green : .orange)
+                    Text(t(trusted ? "granted" : "notGranted"))
+                    if !trusted { Button(t("openSettings")) { openAccessibility() } }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .frame(width: 440)
+        .fixedSize()
+        .onReceive(tick) { _ in trusted = AXIsProcessTrusted() }
+    }
+}
+
+func openAccessibility() {
+    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+}
+
+// MARK: - App
+
+/// A normal app (Dock icon, menu bar) while a window is open; only the menu bar icon otherwise.
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelegate {
     let status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     let overlay = Overlay()
-    let menu = NSMenu()
+    let statusMenu = NSMenu()
+    let model = EditorModel()
+    var editor: NSWindow?
+    var settings: NSWindow?
 
     func applicationDidFinishLaunching(_ n: Notification) {
         status.button?.image = NSImage(systemSymbolName: "poweron", accessibilityDescription: "Dock Dividers")
-        menu.delegate = self
-        status.menu = menu
+        statusMenu.delegate = self
+        status.menu = statusMenu
+        buildMainMenu()
         if !AXIsProcessTrusted() {
             AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
         }
@@ -256,66 +324,87 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if ev?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue != keyAELaunchedAsLogInItem { showEditor() }
     }
 
+    func buildMainMenu() {
+        let main = NSMenu()
+        let app = NSMenu()
+        app.addItem(withTitle: t("about"), action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        app.addItem(.separator())
+        app.addItem(withTitle: t("settings"), action: #selector(showSettings), keyEquivalent: ",").target = self
+        app.addItem(.separator())
+        app.addItem(withTitle: t("hide"), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        app.addItem(withTitle: t("quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        main.addItem(withTitle: "Dock Dividers", action: nil, keyEquivalent: "").submenu = app
+
+        let window = NSMenu(title: t("window"))
+        window.addItem(withTitle: t("editorWindow"), action: #selector(showEditor), keyEquivalent: "e").target = self
+        window.addItem(.separator())
+        window.addItem(withTitle: t("minimize"), action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        window.addItem(withTitle: t("close"), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        main.addItem(withTitle: t("window"), action: nil, keyEquivalent: "").submenu = window
+        NSApp.mainMenu = main
+    }
+
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        menu.addItem(withTitle: t("edit"), action: #selector(showEditor), keyEquivalent: "e").target = self
-        menu.addItem(.separator())
+        menu.addItem(withTitle: t("edit"), action: #selector(showEditor), keyEquivalent: "").target = self
+        menu.addItem(withTitle: t("settings"), action: #selector(showSettings), keyEquivalent: "").target = self
         if !AXIsProcessTrusted() {
-            menu.addItem(withTitle: t("grant"), action: #selector(openAccessibility), keyEquivalent: "").target = self
+            menu.addItem(withTitle: t("grant"), action: #selector(grantAccess), keyEquivalent: "").target = self
         }
-        let login = menu.addItem(withTitle: t("login"), action: #selector(toggleLogin), keyEquivalent: "")
-        login.target = self
-        login.state = SMAppService.mainApp.status == .enabled ? .on : .off
-        let langMenu = NSMenu()
-        for (code, title) in [("system", t("system")), ("en", "English"), ("tr", "Türkçe")] {
-            let item = langMenu.addItem(withTitle: title, action: #selector(setLanguage(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = code
-            item.state = (UserDefaults.standard.string(forKey: "lang") ?? "system") == code ? .on : .off
-        }
-        menu.addItem(withTitle: t("language"), action: nil, keyEquivalent: "").submenu = langMenu
-        menu.addItem(withTitle: t("quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(.separator())
+        menu.addItem(withTitle: t("quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
     }
-
-    var editor: NSWindow?
-    let model = EditorModel()
 
     @objc func showEditor() {
-        model.load()
+        if !model.dirty { model.load() }
         if editor == nil {
-            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 540),
-                             styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
-            w.title = "Dock Dividers"
-            w.isReleasedWhenClosed = false
-            w.contentView = NSHostingView(rootView: EditorView(model: model))
-            w.center()
-            editor = w
+            editor = makeWindow("Dock Dividers", NSHostingView(rootView: EditorView(model: model)),
+                                size: NSSize(width: 320, height: 540), resizable: true)
         }
-        NSApp.activate(ignoringOtherApps: true)
-        editor?.makeKeyAndOrderFront(nil)
+        present(editor!)
     }
 
-    // Opening the app again from Finder/Launchpad shows the editor.
+    @objc func showSettings() {
+        if settings == nil {
+            let host = NSHostingView(rootView: SettingsView())
+            settings = makeWindow(t("settings").replacingOccurrences(of: "…", with: ""), host, size: host.fittingSize, resizable: false)
+        }
+        present(settings!)
+    }
+
+    @objc func grantAccess() { openAccessibility() }
+
+    func makeWindow(_ title: String, _ view: NSView, size: NSSize, resizable: Bool) -> NSWindow {
+        let w = NSWindow(contentRect: NSRect(origin: .zero, size: size),
+                         styleMask: resizable ? [.titled, .closable, .miniaturizable, .resizable] : [.titled, .closable],
+                         backing: .buffered, defer: false)
+        w.title = title
+        w.isReleasedWhenClosed = false
+        w.contentView = view
+        w.delegate = self
+        w.center()
+        return w
+    }
+
+    func present(_ w: NSWindow) {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        w.makeKeyAndOrderFront(nil)
+    }
+
+    // The Dock may have changed while the editor was in the background.
+    func windowDidBecomeKey(_ n: Notification) {
+        if n.object as? NSWindow === editor, !model.dirty { model.load() }
+    }
+
+    func windowWillClose(_ n: Notification) {
+        let others = [editor, settings].compactMap { $0 }.filter { $0 !== n.object as? NSWindow && $0.isVisible }
+        if others.isEmpty { NSApp.setActivationPolicy(.accessory) }
+    }
+
+    // Opening the app again from Finder/Launchpad/Dock shows the editor.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
         showEditor(); return false
-    }
-
-    @objc func setLanguage(_ sender: NSMenuItem) {
-        UserDefaults.standard.set(sender.representedObject as? String, forKey: "lang")
-        // Rebuild the editor so its texts switch language.
-        let wasOpen = editor?.isVisible ?? false
-        editor?.close(); editor = nil
-        if wasOpen { showEditor() }
-    }
-
-    @objc func openAccessibility() {
-        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
-    }
-
-    @objc func toggleLogin() {
-        let s = SMAppService.mainApp
-        do { try s.status == .enabled ? s.unregister() : s.register() }
-        catch { NSAlert(error: error).runModal() }
     }
 }
 
