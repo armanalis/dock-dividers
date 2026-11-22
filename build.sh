@@ -1,11 +1,15 @@
 #!/bin/zsh
-# Builds "Dock Dividers.app" and installs it to /Applications.
+# Builds "Dock Dividers.app" (Apple Silicon + Intel), installs it to /Applications
+# and writes website/public/DockDividers.zip for the download page.
 set -e
 cd "$(dirname "$0")"
 # Built outside iCloud Desktop: its file provider re-adds xattrs that break codesign.
 BUILD=$(mktemp -d); APP="$BUILD/Dock Dividers.app"
 mkdir -p "$APP/Contents/MacOS"
-xcrun swiftc -O -parse-as-library -target arm64-apple-macos13.0 main.swift -o "$APP/Contents/MacOS/DockDividers"
+for arch in arm64 x86_64; do
+  xcrun swiftc -O -parse-as-library -target $arch-apple-macos13.0 main.swift -o "$BUILD/DockDividers-$arch"
+done
+lipo -create "$BUILD"/DockDividers-* -output "$APP/Contents/MacOS/DockDividers"
 mkdir -p "$APP/Contents/Resources" && cp AppIcon.icns "$APP/Contents/Resources/"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -29,4 +33,6 @@ rm -rf "/Applications/Dock Dividers.app" && cp -R "$APP" /Applications/
 # Re-register so Spotlight/Launchpad pick up a new icon instead of a cached blank one.
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "/Applications/Dock Dividers.app"
 [ -z "$ID" ] && echo "Note: ad-hoc signed; the Accessibility permission resets on every build."
-echo "Installed /Applications/Dock Dividers.app"
+mkdir -p website/public && (cd "$BUILD" && ditto -c -k --keepParent "Dock Dividers.app" DockDividers.zip)
+cp "$BUILD/DockDividers.zip" website/public/DockDividers.zip
+echo "Installed /Applications/Dock Dividers.app and wrote website/public/DockDividers.zip"

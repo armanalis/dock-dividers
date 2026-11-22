@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dock Dividers — Mac Dock'una istediğin yere ayraç koy</title>
+<meta name="description" content="Mac Dock'undaki uygulamaları gruplamak için istediğin yere macOS'un kendi ayracı gibi görünen ince çizgiler koyan ücretsiz uygulama.">
+<link rel="icon" href="icon.png">
+<style>
+  :root {
+    --bg: #0b0c10; --panel: #14161c; --line: #23262f; --text: #eef0f4; --muted: #959aa8;
+    --blue: #5b8cff; --blue-dark: #2f55c4;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 17px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; }
+  a { color: var(--blue); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  nav { display: flex; align-items: center; gap: 12px; padding: 22px 0; font-weight: 600; }
+  nav img { width: 34px; height: 34px; }
+  nav .gh { margin-left: auto; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 15px; }
+  nav .gh:hover { color: var(--text); }
+
+  .hero { padding: 64px 0 88px; text-align: center; }
+  h1 { font-size: clamp(40px, 5.4vw, 62px); line-height: 1.04; letter-spacing: -0.03em; margin: 0 auto 20px; max-width: 14em; text-wrap: balance; }
+  h1 em { font-style: normal; color: var(--blue); }
+  .lead { color: var(--muted); font-size: 19px; max-width: 34em; margin: 0 auto 34px; }
+
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .btn { display: inline-flex; align-items: center; gap: 10px; padding: 15px 26px; border-radius: 14px;
+    font-weight: 650; font-size: 17px; text-decoration: none; }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover { background: #7aa2ff; }
+  .btn-ghost { color: var(--text); border: 1px solid var(--line); }
+  .btn-ghost:hover { border-color: var(--muted); }
+  .btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+  .fine { color: var(--muted); font-size: 14px; margin-top: 14px; }
+
+  /* mock of a Dock with divider lines */
+  .dock { display: inline-flex; align-items: center; gap: 10px; margin-top: 56px; padding: 12px 14px;
+    background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 26px;
+    box-shadow: 0 40px 80px -30px rgba(0,0,0,.8); max-width: 100%; overflow: hidden; }
+  .dock .app { width: 56px; height: 56px; border-radius: 14px; flex: none; }
+  .dock .div { width: 1.5px; height: 40px; margin: 0 8px; background: rgba(255,255,255,.35); border-radius: 1px; flex: none; }
+  .dock-caption { color: var(--muted); font-size: 14px; margin-top: 14px; }
+
+  section { padding: 72px 0; border-top: 1px solid var(--line); }
+  h2 { font-size: 32px; letter-spacing: -0.02em; margin: 0 0 28px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 24px; }
+  .card h3 { margin: 0 0 8px; font-size: 18px; }
+  .card p { margin: 0; color: var(--muted); font-size: 15.5px; }
+
+  .shots { display: grid; grid-template-columns: 1fr 1.6fr; gap: 28px; align-items: center; }
+  .shots img { width: 100%; height: auto; border-radius: 14px; border: 1px solid var(--line); }
+  .shots ul { margin: 0; padding-left: 20px; color: var(--muted); }
+  .shots li { margin-bottom: 10px; }
+  .shots b { color: var(--text); }
+
+  ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; max-width: 760px; }
+  ol.steps li { counter-increment: s; display: flex; gap: 16px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 14px; padding: 18px 20px; }
+  ol.steps li > div { min-width: 0; flex: 1; }
+  ol.steps li::before { content: counter(s); flex: none; width: 30px; height: 30px; border-radius: 50%;
+    background: var(--blue-dark); display: grid; place-items: center; font-weight: 700; font-size: 15px; }
+  pre { background: #08090c; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; overflow-x: auto;
+    font-size: 13.5px; margin: 0; }
+  .note { color: var(--muted); font-size: 15px; margin-top: 18px; max-width: 760px; }
+  .cmd { display: flex; gap: 10px; align-items: stretch; margin-top: 10px; }
+  .cmd pre { flex: 1; user-select: all; }
+  .cmd button { flex: none; background: var(--blue); color: #fff; border: 0; border-radius: 10px; padding: 0 16px;
+    font: 600 14px/1 inherit; cursor: pointer; }
+  .cmd button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+  details summary { cursor: pointer; color: var(--text); }
+  details[open] summary { margin-bottom: 8px; }
+  html { scroll-behavior: smooth; }
+  footer { padding: 36px 0 52px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); }
+
+  @media (max-width: 860px) {
+    .hero { padding-top: 28px; }
+    .grid, .shots { grid-template-columns: 1fr; }
+    .dock .app { width: 40px; height: 40px; border-radius: 10px; }
+    .dock .div { height: 30px; margin: 0 4px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav><img src="icon.png" alt="">Dock Dividers<a class="gh" href="https://github.com/armanalis/dock-dividers">GitHub</a></nav>
+
+  <header class="hero">
+    <h1>Dock'unu grupla, <em>istediğin yere ayraç koy.</em></h1>
+    <p class="lead">Dock Dividers, Mac Dock'undaki uygulamaların arasına macOS'un kendi ayracı gibi görünen ince çizgiler koyar.
+      Kod araçlarını, mesajlaşmayı, müziği ayrı gruplarda tut.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="#kurulum">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12m0 0-5-5m5 5 5-5M5 20h14"/></svg>
+        Mac'e kur
+      </a>
+      <a class="btn btn-ghost" href="DockDividers.zip" download>DockDividers.zip indir</a>
+    </div>
+    <p class="fine">Ücretsiz ve açık kaynak · macOS 13+ · Apple Silicon ve Intel · 470 KB</p>
+
+    <div class="dock" role="img" aria-label="Üç gruba ayrılmış bir Dock: gruplar arasında ince ayraç çizgileri">
+      <span class="app" style="background:#3b82f6"></span><span class="app" style="background:#e5e7eb"></span><span class="app" style="background:#22c55e"></span>
+      <span class="div"></span>
+      <span class="app" style="background:#f97316"></span><span class="app" style="background:#111827;border:1px solid #333"></span><span class="app" style="background:#1e3a8a"></span>
+      <span class="div"></span>
+      <span class="app" style="background:#1db954"></span><span class="app" style="background:#ec4899"></span>
+    </div>
+    <p class="dock-caption">Genel · Kod · Müzik</p>
+  </header>
+</div>
+
+<section>
+  <div class="wrap">
+    <h2>Ne yapar?</h2>
+    <div class="grid">
+      <div class="card"><h3>İstediğin yere ayraç</h3><p>macOS sadece uygulamalarla Çöp arasına ayraç koyar. Dock Dividers istediğin kadar ayracı istediğin iki uygulamanın arasına koyar.</p></div>
+      <div class="card"><h3>Native görünüm</h3><p>Çizgiler macOS'un kendi ayracıyla aynı incelikte. Açık ve koyu temaya göre rengi değişir, tıklamaları engellemez.</p></div>
+      <div class="card"><h3>Sürükle, sırala</h3><p>Tüm Dock tek bir listede. Ayracı ya da uygulamayı sürükle, <b>Dock'a Uygula</b>'ya bas.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap shots">
+    <img src="screenshot-editor.png" width="640" height="1144" alt="Düzenleme penceresi: Dock'taki uygulamalar bir listede, Hesap Makinesi ile Hava Durumu arasında bir ayraç satırı, altta Ayraç Ekle ve Dock'a Uygula düğmeleri">
+    <div>
+      <h2>Nasıl çalışır?</h2>
+      <ul>
+        <li><b>Ayraç Ekle</b> Dock'a Apple'ın kendi yarım ikon genişliğindeki boşluğunu ekler.</li>
+        <li>Uygulama boşlukların yerini Erişilebilirlik izniyle okur ve her birinin üstüne ince bir çizgi çizer.</li>
+        <li>Pencere kapalıyken sadece menü çubuğunda durur. <b>Ayarlar</b>'da dil (Türkçe / English), Girişte Başlat ve izin durumu var.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="kurulum">
+  <div class="wrap">
+    <h2>Mac'e kur (1 dakika)</h2>
+    <ol class="steps">
+      <li><div><b>⌘ + Boşluk</b>'a bas, <b>Terminal</b> yaz ve Enter'a bas.</div></li>
+      <li><div>Bu komutu kopyala, Terminal'e yapıştır ve Enter'a bas:
+        <div class="cmd"><pre id="cmd-mac">curl -fsSL https://dock-dividers.armanalis.workers.dev/install.sh | sh</pre><button type="button" data-copy="cmd-mac">Kopyala</button></div></div></li>
+      <li><div>Dock Dividers açılır ve Erişilebilirlik izni ister. <b>Sistem Ayarları'nı Aç</b>'a bas ve <b>Dock Dividers</b>'ın anahtarını aç. Bu izin çizgilerin yerini bulmak için gerekli.</div></li>
+      <li><div><b>Ayraç Ekle</b>'ye bas, ayracı listede istediğin iki uygulamanın arasına sürükle ve <b>Dock'a Uygula</b>'ya bas.</div></li>
+    </ol>
+    <p class="note">Komut sadece uygulamayı indirip Uygulamalar klasörüne koyar; ne yaptığını <a href="install.sh">buradan okuyabilirsin</a>.
+      Çizgilerin her zaman görünmesi için Ayarlar'da <b>Girişte Başlat</b>'ı aç. Dock büyütmesi açıksa çizgiler biraz geriden gelir; en temiz görünüm için büyütmeyi kapat.</p>
+    <details class="note"><summary>Terminal kullanmadan kurmak istersen</summary>
+      <a href="DockDividers.zip" download>DockDividers.zip</a>'i indir, aç ve uygulamayı Uygulamalar'a sürükle. Açarken "doğrulanamadı" uyarısı çıkarsa
+      <b>Bitti</b>'ye bas, <b>Sistem Ayarları → Gizlilik ve Güvenlik</b>'te en alttaki <b>Yine de Aç</b>'a bas.</details>
+  </div>
+</section>
+
+<footer><div class="wrap">Dock Dividers · Ücretsiz ve açık kaynak · <a href="https://github.com/armanalis/dock-dividers">github.com/armanalis/dock-dividers</a></div></footer>
+<script src="copy.js"></script>
+</body>
+</html>

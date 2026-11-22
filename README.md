@@ -10,6 +10,12 @@
 </p>
 
 <p align="center">
+  <a href="https://dock-dividers.armanalis.workers.dev"><b>Website</b></a> ·
+  <a href="#install--kurulum">Install</a> ·
+  <a href="#how-it-works">How it works</a>
+</p>
+
+<p align="center">
   <img src="docs/screenshot-dock.png" alt="Dock with a thin divider line between Calculator and Weather, next to the built-in separator before the Trash">
 </p>
 
@@ -27,7 +33,15 @@
 
 ## Install / Kurulum
 
-Requires macOS 13+ and Xcode Command Line Tools.
+One command (macOS 13+, Apple Silicon and Intel):
+
+```bash
+curl -fsSL https://dock-dividers.armanalis.workers.dev/install.sh | sh
+```
+
+Or download [DockDividers.zip](https://dock-dividers.armanalis.workers.dev/DockDividers.zip) and drag the app to Applications.
+
+Build from source (needs Xcode Command Line Tools):
 
 ```bash
 git clone https://github.com/armanalis/dock-dividers.git
@@ -53,6 +67,8 @@ While a window is open it behaves like a normal app, with a Dock icon and menu b
 - Bottom Dock only; left/right Dock is not supported.
 - Lines follow the Dock 3× per second, so they lag behind **Dock magnification**. Turn magnification off for a clean look.
 - Rebuilding with an ad-hoc signature resets the Accessibility permission. `build.sh` uses a local code signing identity named `Dock Dividers Local Signing` if your keychain has one.
+
+Deploy the website (Cloudflare Workers): `cd website && npx wrangler deploy`
 
 ## License
 
