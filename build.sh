@@ -26,5 +26,7 @@ xattr -cr "$APP"
 ID=$(security find-identity -p codesigning | awk '/Dock Dividers Local Signing/{print $2; exit}')
 codesign --force -s "${ID:--}" "$APP"
 rm -rf "/Applications/Dock Dividers.app" && cp -R "$APP" /Applications/
+# Re-register so Spotlight/Launchpad pick up a new icon instead of a cached blank one.
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "/Applications/Dock Dividers.app"
 [ -z "$ID" ] && echo "Note: ad-hoc signed; the Accessibility permission resets on every build."
 echo "Installed /Applications/Dock Dividers.app"
