@@ -142,14 +142,17 @@ func readDock() -> (list: CGRect, items: [DockItem])? {
 // MARK: - Overlay
 
 final class LinesView: NSView {
-    var xs: [CGFloat] = []   // in view coordinates
+    var xs: [CGFloat] = []   // in view coordinates; Y positions when vertical
     var lineHeight: CGFloat = 0
+    var vertical = false     // left/right Dock: horizontal lines
     override func draw(_ dirtyRect: NSRect) {
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         (dark ? NSColor(white: 1, alpha: 0.32) : NSColor(white: 0, alpha: 0.22)).setFill()
         for x in xs {
-            NSBezierPath(roundedRect: NSRect(x: x - 0.5, y: (bounds.height - lineHeight) / 2, width: 1, height: lineHeight),
-                         xRadius: 0.5, yRadius: 0.5).fill()
+            let r = vertical
+                ? NSRect(x: (bounds.width - lineHeight) / 2, y: x - 0.5, width: lineHeight, height: 1)
+                : NSRect(x: x - 0.5, y: (bounds.height - lineHeight) / 2, width: 1, height: lineHeight)
+            NSBezierPath(roundedRect: r, xRadius: 0.5, yRadius: 0.5).fill()
         }
     }
 }
@@ -171,21 +174,26 @@ final class Overlay {
     }
 
     func refresh() {
-        // shortcut: horizontal (bottom) Dock only; a left/right Dock needs Y-based gaps.
-        guard AXIsProcessTrusted(), let dock = readDock(), dock.list.width > dock.list.height else {
-            window.orderOut(nil); return
+        guard AXIsProcessTrusted(), let dock = readDock() else { window.orderOut(nil); return }
+        // Left/right Dock: swap axes so the same gap logic works top to bottom.
+        let vertical = dock.list.height > dock.list.width
+        let items = !vertical ? dock.items : dock.items.map {
+            DockItem(frame: CGRect(x: $0.frame.minY, y: $0.frame.minX, width: $0.frame.height, height: $0.frame.width),
+                     subrole: $0.subrole)
         }
-        let xs = dividerXs(dock.items)
+        let xs = dividerXs(items)
         let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
         let frame = NSRect(x: dock.list.minX, y: primaryHeight - dock.list.maxY,
                            width: dock.list.width, height: dock.list.height)
         // Autohidden Dock: its frame sits off every screen.
-        guard !xs.isEmpty, NSScreen.screens.contains(where: { $0.frame.intersects(frame.insetBy(dx: 0, dy: 4)) }) else {
+        guard !xs.isEmpty, NSScreen.screens.contains(where: { $0.frame.intersects(frame.insetBy(dx: vertical ? 4 : 0, dy: vertical ? 0 : 4)) }) else {
             window.orderOut(nil); return
         }
-        let iconHeight = dock.items.map(\.frame.height).max() ?? frame.height
+        let iconHeight = items.map(\.frame.height).max() ?? frame.height
         if window.frame != frame { window.setFrame(frame, display: false) }
-        view.xs = xs.map { $0 - dock.list.minX }
+        // AX Y grows downward, view Y upward.
+        view.xs = vertical ? xs.map { dock.list.maxY - $0 } : xs.map { $0 - dock.list.minX }
+        view.vertical = vertical
         view.lineHeight = iconHeight * 0.6
         view.needsDisplay = true
         window.orderFrontRegardless()

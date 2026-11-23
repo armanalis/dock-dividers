@@ -60,11 +60,10 @@ Kurulumdan sonra **Sistem Ayarları → Gizlilik ve Güvenlik → Erişilebilirl
 2. The app reads each spacer's position through the Accessibility API (`AXSpacerDockItem`).
 3. A transparent, click-through window draws a thin line over each spacer, styled like the built-in separator and matching light/dark mode.
 
-While a window is open it behaves like a normal app, with a Dock icon and menu bar; close it and only the menu bar icon (vertical line) stays. **Settings… (⌘,)** has Language (System / English / Türkçe), Open at Login and the Accessibility status.
+While a window is open it behaves like a normal app, with a Dock icon and menu bar; close it and only the menu bar icon (vertical line) stays. Works with the Dock at the bottom, left or right (on a side Dock the lines are horizontal). **Settings… (⌘,)** has Language (System / English / Türkçe), Open at Login, Keep Lines After Quitting and the Accessibility status.
 
 ## Limits
 
-- Bottom Dock only; left/right Dock is not supported.
 - Lines follow the Dock 3× per second, so they lag behind **Dock magnification**. Turn magnification off for a clean look.
 - Rebuilding with an ad-hoc signature resets the Accessibility permission. `build.sh` uses a local code signing identity named `Dock Dividers Local Signing` if your keychain has one.
 
